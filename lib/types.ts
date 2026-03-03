@@ -10,6 +10,7 @@ export type Profile = {
   protein_target: number;
   carbs_target: number;
   fat_target: number;
+  is_coach?: boolean;
 };
 
 export type Recipe = {
@@ -32,4 +33,26 @@ export type DailyLog = {
   log_date: string;
   recipe_id: number;
   portions: number;
+};
+export type MealType = "mic_dejun" | "pranz" | "cina" | "gustare";
+
+export type Food = {
+  id: number;
+  name: string;
+  source: "off" | "usda" | "custom";
+  owner_user_id?: string | null;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+  is_verified: boolean;
+};
+
+export type FoodLog = {
+  id: number;
+  user_id: string;
+  log_date: string;
+  meal_type: MealType;
+  food_id: number;
+  grams: number;
 };

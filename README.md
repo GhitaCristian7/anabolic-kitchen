@@ -35,3 +35,10 @@ Deschide: http://localhost:3000
 ## Observații (MVP)
 - Protecția e client-side (redirect la /login). Datele sunt totuși protejate prin RLS în Supabase.
 - Paywall Stripe NU este inclus încă (îl adăugăm după ce confirmi că MVP-ul funcționează cap-coadă).
+
+
+## Upgrade: Coach + Hybrid foods
+
+1) Rulează `supabase/migrations/upgrade_coach_hybrid.sql` în Supabase SQL Editor.
+2) Setează contul tău ca coach: `update public.profiles set is_coach=true where user_id='<UUID>';`
+3) Deploy pe Vercel.

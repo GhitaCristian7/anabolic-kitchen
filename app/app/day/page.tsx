@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import type { DailyLog, Recipe } from "@/lib/types";
+import type { DailyLog, Recipe, FoodLog, Food } from "@/lib/types";
 import { Card, CardHeader, CardBody, Button, Badge } from "@/components/ui";
 
 function todayISO(): string {
@@ -17,6 +17,7 @@ function todayISO(): string {
 export default function DayPage() {
   const date = useMemo(() => todayISO(), []);
   const [items, setItems] = useState<(DailyLog & { recipe: Recipe })[]>([]);
+  const [foodItems, setFoodItems] = useState<(FoodLog & { food: Food })[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -43,7 +44,28 @@ export default function DayPage() {
       portions: Number(row.portions),
       recipe: row.recipes,
     }));
-    setItems(mapped);
+    
+setItems(mapped);
+
+const foodRes = await supabase
+  .from("food_logs")
+  .select("id,user_id,log_date,meal_type,food_id,grams, foods:food_id ( id,name,source,owner_user_id,calories_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,is_verified )")
+  .eq("user_id", user.id)
+  .eq("log_date", date)
+  .order("created_at", { ascending: false });
+
+if (foodRes.error) setErr(foodRes.error.message);
+const fMapped = (foodRes.data ?? []).map((row: any) => ({
+  id: row.id,
+  user_id: row.user_id,
+  log_date: row.log_date,
+  meal_type: row.meal_type,
+  food_id: row.food_id,
+  grams: Number(row.grams),
+  food: row.foods,
+}));
+setFoodItems(fMapped);
+
     setLoading(false);
   }
 
@@ -51,7 +73,17 @@ export default function DayPage() {
     load();
   }, []);
 
-  async function removeLog(id: number) {
+  async function removeFoodLog(id: number) {
+  const { error } = await supabase.from("food_logs").delete().eq("id", id);
+  if (error) {
+    setErr(error.message);
+    return;
+  }
+  await load();
+}
+
+async function removeLog(id: number) {
+
     const { error } = await supabase.from("daily_logs").delete().eq("id", id);
     if (error) {
       setErr(error.message);
@@ -60,18 +92,38 @@ export default function DayPage() {
     await load();
   }
 
-  const totals = useMemo(() => {
-    return items.reduce(
-      (acc, l) => {
-        acc.calories += l.recipe.calories * l.portions;
-        acc.protein += l.recipe.protein * l.portions;
-        acc.carbs += l.recipe.carbs * l.portions;
-        acc.fat += l.recipe.fat * l.portions;
-        return acc;
-      },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
-  }, [items]);
+  
+const totals = useMemo(() => {
+  const fromRecipes = items.reduce(
+    (acc, l) => {
+      acc.calories += l.recipe.calories * l.portions;
+      acc.protein += l.recipe.protein * l.portions;
+      acc.carbs += l.recipe.carbs * l.portions;
+      acc.fat += l.recipe.fat * l.portions;
+      return acc;
+    },
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+
+  const fromFoods = foodItems.reduce(
+    (acc, l) => {
+      const mul = l.grams / 100;
+      acc.calories += Number(l.food.calories_per_100g) * mul;
+      acc.protein += Number(l.food.protein_per_100g) * mul;
+      acc.carbs += Number(l.food.carbs_per_100g) * mul;
+      acc.fat += Number(l.food.fat_per_100g) * mul;
+      return acc;
+    },
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+
+  return {
+    calories: fromRecipes.calories + fromFoods.calories,
+    protein: fromRecipes.protein + fromFoods.protein,
+    carbs: fromRecipes.carbs + fromFoods.carbs,
+    fat: fromRecipes.fat + fromFoods.fat,
+  };
+}, [items, foodItems]);
 
   return (
     <Card>
@@ -84,14 +136,44 @@ export default function DayPage() {
             <span className="text-white"> C {Math.round(totals.carbs)}g</span> •
             <span className="text-white"> F {Math.round(totals.fat)}g</span>
           </div>
-          <Link href="/app/recipes"><Button>Adaugă masă</Button></Link>
+          <div className="flex items-center gap-2">
+            <Link href="/app/recipes"><Button>Adaugă rețetă</Button></Link>
+            <Link href="/app/foods"><Button variant="ghost">Adaugă aliment</Button></Link>
+          </div>
         </div>
 
         {err ? <div className="mt-3 text-warn text-sm">{err}</div> : null}
 
         <div className="mt-4 space-y-3">
           {loading ? <div className="text-text2">Se încarcă...</div> : null}
-          {!loading && items.length === 0 ? <div className="text-text2">Nicio masă adăugată azi.</div> : null}
+          
+{!loading && foodItems.length === 0 ? <div className="text-text2">Niciun aliment adăugat azi.</div> : null}
+
+{foodItems.map((it) => {
+  const mul = it.grams / 100;
+  const kcal = Math.round(Number(it.food.calories_per_100g) * mul);
+  const p = Math.round(Number(it.food.protein_per_100g) * mul);
+  const c = Math.round(Number(it.food.carbs_per_100g) * mul);
+  const f = Math.round(Number(it.food.fat_per_100g) * mul);
+  return (
+    <div key={`food-${it.id}`} className="rounded-xl2 border border-white/10 bg-black/20 p-4 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <div className="font-medium truncate">{it.food.name}</div>
+        <div className="text-sm text-text2 mt-1">
+          {it.meal_type} • {it.grams}g • {kcal} kcal
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          <Badge className="border-accent/40">P {p}g</Badge>
+          <Badge className="border-carb/40">C {c}g</Badge>
+          <Badge className="border-fat/40">F {f}g</Badge>
+        </div>
+      </div>
+      <Button variant="ghost" onClick={() => removeFoodLog(it.id)}>Șterge</Button>
+    </div>
+  );
+})}
+
+{!loading && items.length === 0 ? <div className="text-text2">Nicio masă adăugată azi.</div> : null}
 
           {items.map((it) => (
             <div key={it.id} className="rounded-xl2 border border-white/10 bg-black/20 p-4 flex items-start justify-between gap-4">
