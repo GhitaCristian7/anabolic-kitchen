@@ -153,11 +153,17 @@ export default function CoachPage() {
       <CardBody>
         <div className="flex flex-wrap gap-3 items-end">
           <Select
-            label="Client"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            options={clients.map((c) => ({ value: c.user_id, label: c.user_id }))}
-          />
+  label="Client"
+  value={clientId}
+  onChange={(e) => setClientId(e.target.value)}
+>
+  <option value="" disabled>Alege client</option>
+  {clients.map((c) => (
+    <option key={c.user_id} value={c.user_id}>
+      {c.user_id}
+    </option>
+  ))}
+</Select>
           <Input label="Data" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <Button onClick={loadDay} disabled={loading}>{loading ? "..." : "Refresh"}</Button>
         </div>

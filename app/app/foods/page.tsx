@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { Food, MealType } from "@/lib/types";
+import type { MealType } from "@/lib/types";
 import { Card, CardHeader, CardBody, Button, Input, Select, Badge } from "@/components/ui";
 
 function todayISO(): string {
@@ -64,7 +64,7 @@ export default function FoodsPage() {
     const user = s.session?.user;
     if (!user) return;
 
-    // 1) upsert minimal în foods (cache în DB ca verified=false dar usable ca global dacă vrem)
+    // 1) insert food (cache)
     const insertFood = await supabase
       .from("foods")
       .insert({
@@ -102,8 +102,7 @@ export default function FoodsPage() {
 
   function kcalCheck(k: number, p: number, c: number, f: number): { ok: boolean; est: number } {
     const est = p * 4 + c * 4 + f * 9;
-    // toleranță: ±20%
-    const ok = k === 0 ? false : Math.abs(est - k) / k <= 0.2;
+    const ok = k === 0 ? false : Math.abs(est - k) / k <= 0.2; // ±20%
     return { ok, est };
   }
 
@@ -167,25 +166,33 @@ export default function FoodsPage() {
       <CardHeader title="Alimente" subtitle={`Adaugă alimente în ziua curentă (${date})`} />
       <CardBody>
         <div className="flex flex-wrap gap-3 items-end">
-          <Select
-            label="Masă"
-            value={meal}
-            onChange={(e) => setMeal(e.target.value as MealType)}
-            options={[
-              { value: "mic_dejun", label: "Mic dejun" },
-              { value: "pranz", label: "Prânz" },
-              { value: "cina", label: "Cină" },
-              { value: "gustare", label: "Gustare" },
-            ]}
+          <Select label="Masă" value={meal} onChange={(e) => setMeal(e.target.value as MealType)}>
+            <option value="mic_dejun">Mic dejun</option>
+            <option value="pranz">Prânz</option>
+            <option value="cina">Cină</option>
+            <option value="gustare">Gustare</option>
+          </Select>
+
+          <Input
+            label="Grame"
+            type="number"
+            value={grams}
+            onChange={(e) => setGrams(Number(e.target.value))}
           />
-          <Input label="Grame" type="number" value={grams} onChange={(e) => setGrams(Number(e.target.value))} />
         </div>
 
         <div className="mt-6">
           <div className="text-sm text-text2 mb-2">Căutare (Open Food Facts)</div>
           <div className="flex gap-2">
-            <Input placeholder="ex: iaurt grecesc, banană, orez" value={q} onChange={(e) => setQ(e.target.value)} />
-            <Button onClick={doSearch} disabled={searching}>{searching ? "..." : "Caută"}</Button>
+            <Input
+              label="Căutare"
+              placeholder="ex: iaurt grecesc, banană, orez"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <Button onClick={doSearch} disabled={searching}>
+              {searching ? "..." : "Caută"}
+            </Button>
           </div>
 
           <div className="mt-4 space-y-2">
@@ -194,7 +201,8 @@ export default function FoodsPage() {
                 <div className="min-w-0">
                   <div className="font-medium truncate">{h.name}</div>
                   <div className="text-xs text-text2">
-                    /100g: {Math.round(h.kcal100)} kcal • P {Math.round(h.p100)} • C {Math.round(h.c100)} • F {Math.round(h.f100)}
+                    /100g: {Math.round(h.kcal100)} kcal • P {Math.round(h.p100)} • C {Math.round(h.c100)} • F{" "}
+                    {Math.round(h.f100)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -217,7 +225,9 @@ export default function FoodsPage() {
             <Input label="Grăsimi / 100g" type="number" value={cF} onChange={(e) => setCF(Number(e.target.value))} />
           </div>
           <div className="mt-3">
-            <Button onClick={addCustom} disabled={savingCustom}>{savingCustom ? "..." : "Adaugă aliment custom"}</Button>
+            <Button onClick={addCustom} disabled={savingCustom}>
+              {savingCustom ? "..." : "Adaugă aliment custom"}
+            </Button>
           </div>
         </div>
 

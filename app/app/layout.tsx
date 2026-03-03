@@ -11,28 +11,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [isCoach, setIsCoach] = useState(false);
 
- useEffect(() => {
+useEffect(() => {
+  let unsub: (() => void) | null = null;
+
   (async () => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (!sessionData.session) {
+      router.replace("/login");
+      return;
+    }
 
     const { data: prof } = await supabase
       .from("profiles")
       .select("is_coach")
-      .eq("user_id", data.session.user.id)
+      .eq("user_id", sessionData.session.user.id)
       .maybeSingle();
 
     setIsCoach(Boolean(prof?.is_coach));
     setReady(true);
   })();
-}, []);
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/login");
-    });
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session) router.replace("/login");
+  });
 
-    return () => sub.subscription.unsubscribe();
-  }, [router]);
+  unsub = () => sub.subscription.unsubscribe();
+
+  return () => {
+    if (unsub) unsub();
+  };
+}, [router]);
 
   async function logout() {
     await supabase.auth.signOut();
