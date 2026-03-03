@@ -11,18 +11,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [isCoach, setIsCoach] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-        return;
-      }
-      // detect role (coach)
-const { data: prof } = await supabase.from("profiles").select("is_coach").eq("user_id", data.session.user.id).maybeSingle();
-setIsCoach(Boolean(prof?.is_coach));
-setReady(true);
+ useEffect(() => {
+  (async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) return;
 
-    });
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("is_coach")
+      .eq("user_id", data.session.user.id)
+      .maybeSingle();
+
+    setIsCoach(Boolean(prof?.is_coach));
+    setReady(true);
+  })();
+}, []);
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) router.replace("/login");
